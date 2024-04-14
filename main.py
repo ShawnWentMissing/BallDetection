@@ -10,16 +10,15 @@ import cv2 as cv
 
 def pad_num(n):
     s = str(n)
-    while len(s) < 3:
+    while len(s) < 4:
         s = "0" + s
     return s
 
 BACK_CAMERA = 0
 FRONT_WALL = 1
-LEFT_WALL = 2
-RIGHT_WALL = 3
+FLOOR = 2
 
-def get_ball_position(images, camera, i=0):
+def get_ball_position(images, camera, debug):
     start = perf_counter()
     image0, image1, image2 = images
 
@@ -46,12 +45,12 @@ def get_ball_position(images, camera, i=0):
     
     # back view: 60
     # wall view: 12
-
+    # print(anded.max(), "anded max")
     threshold = 0
     if camera == BACK_CAMERA:
         threshold = 60
     elif camera == FRONT_WALL:
-        threshold = 12
+        threshold = 25
     
     
     anded[anded < threshold] = 0
@@ -93,12 +92,16 @@ def get_ball_position(images, camera, i=0):
         min_area = 1200
         max_area = 1800
     elif camera == FRONT_WALL:
-        min_area = 2000
+        min_area = 1000
         max_area = 8000
+    elif camera == FLOOR:
+        min_area = 2000
+        max_area = 3000
+        
     
     for cnt,cx,cy in data:
         area = cv.contourArea(cnt)
-        # print(area)
+        print(area)
         if min_area < area < max_area:
             ball_candidates.append((cnt,cx,cy))
     
@@ -134,86 +137,116 @@ def get_ball_position(images, camera, i=0):
         
         centre = cx, cy
     
-        cv.drawContours(contoured, [ball_candidates[0][0]], -1, (0,255,0), 10)
+        if debug:
+            cv.drawContours(contoured, [ball_candidates[0][0]], -1, (0,255,0), 10)
     
-    print("Grayscale:", after_grayscale - start)
-    print("Gaussian:", after_gaussian - after_grayscale)
-    print("Difference:", after_difference - after_gaussian)
-    print("And:", after_and - after_difference)
-    print("Otsu:", after_otsu - after_and)
-    print("Dilation:", after_dilation - after_otsu)
-    print("Erosion:", after_erosion - after_dilation)
-    print("Contours:", after_contours - after_erosion)
-    print("Total:", after_contours - start - (after_gaussian - after_grayscale) - (after_erosion - after_dilation))
-    # Display the image and plot all contours found
+    if debug:
+        print("Grayscale:", after_grayscale - start)
+        print("Gaussian:", after_gaussian - after_grayscale)
+        print("Difference:", after_difference - after_gaussian)
+        print("And:", after_and - after_difference)
+        print("Otsu:", after_otsu - after_and)
+        print("Dilation:", after_dilation - after_otsu)
+        print("Erosion:", after_erosion - after_dilation)
+        print("Contours:", after_contours - after_erosion)
+        print("Total:", after_contours - start - (after_gaussian - after_grayscale) - (after_erosion - after_dilation))
+        # Display the image and plot all contours found
 
-    fig = plt.figure(figsize=(8,9))
-    gs = GridSpec(4, 3)
-    ax00 = fig.add_subplot(gs[0, 0])
-    ax01 = fig.add_subplot(gs[0, 1])
-    ax02 = fig.add_subplot(gs[0, 2])
-    ax10 = fig.add_subplot(gs[1, 0])
-    ax11 = fig.add_subplot(gs[1, 1])
-    ax12 = fig.add_subplot(gs[1, 2])
-    ax20 = fig.add_subplot(gs[2, 0])
-    ax21 = fig.add_subplot(gs[2, 1])
-    ax22 = fig.add_subplot(gs[2, 2])
-    ax30 = fig.add_subplot(gs[3, 0])
-    ax31 = fig.add_subplot(gs[3, 1])
-    ax32 = fig.add_subplot(gs[3, 2])
+        fig = plt.figure(figsize=(8,9))
+        gs = GridSpec(4, 3)
+        ax00 = fig.add_subplot(gs[0, 0])
+        ax01 = fig.add_subplot(gs[0, 1])
+        ax02 = fig.add_subplot(gs[0, 2])
+        ax10 = fig.add_subplot(gs[1, 0])
+        ax11 = fig.add_subplot(gs[1, 1])
+        ax12 = fig.add_subplot(gs[1, 2])
+        ax20 = fig.add_subplot(gs[2, 0])
+        ax21 = fig.add_subplot(gs[2, 1])
+        ax22 = fig.add_subplot(gs[2, 2])
+        ax30 = fig.add_subplot(gs[3, 0])
+        ax31 = fig.add_subplot(gs[3, 1])
+        ax32 = fig.add_subplot(gs[3, 2])
 
-    ax00.imshow(gaussian0, cmap='gray')
-    ax00.set_title('Original')
-    
-    ax01.imshow(gaussian1, cmap='gray')
-    ax01.set_title('Original')
-    
-    ax02.imshow(gaussian2, cmap='gray')
-    ax02.set_title('Original')
-    
-    ax10.imshow(diff1, cmap='gray')
-    ax10.set_title('Diff1')
-    ax11.imshow(diff2, cmap='gray')
-    ax11.set_title('Diff2')
-    # ax20.imshow(rediff1, cmap='gray')
-    ax20.set_title('Normalised1')
-    # ax21.imshow(rediff2, cmap='gray')
-    ax21.set_title('Normalised2')
-    ax30.imshow(anded, cmap='gray')
-    ax30.set_title('Anded')
-    ax31.imshow(otsu, cmap='gray')
-    ax31.set_title('Otsu')
-    ax12.imshow(dilated, cmap='gray')
-    ax12.set_title('Dilated')
-    ax22.imshow(eroded, cmap='gray')
-    ax22.set_title('Eroded')
-    ax32.imshow(contoured)
-    ax32.set_title('Contours')
-    
-    fig.tight_layout()
-    plt.show()
+        ax00.imshow(gaussian0, cmap='gray')
+        ax00.set_title('Original')
+        
+        ax01.imshow(gaussian1, cmap='gray')
+        ax01.set_title('Original')
+        
+        ax02.imshow(gaussian2, cmap='gray')
+        ax02.set_title('Original')
+        
+        ax10.imshow(diff1, cmap='gray')
+        ax10.set_title('Diff1')
+        ax11.imshow(diff2, cmap='gray')
+        ax11.set_title('Diff2')
+        # ax20.imshow(rediff1, cmap='gray')
+        ax20.set_title('Normalised1')
+        # ax21.imshow(rediff2, cmap='gray')
+        ax21.set_title('Normalised2')
+        ax30.imshow(anded, cmap='gray')
+        ax30.set_title('Anded')
+        ax31.imshow(otsu, cmap='gray')
+        ax31.set_title('Otsu')
+        ax12.imshow(dilated, cmap='gray')
+        ax12.set_title('Dilated')
+        ax22.imshow(eroded, cmap='gray')
+        ax22.set_title('Eroded')
+        ax32.imshow(contoured)
+        ax32.set_title('Contours')
+        
+        fig.tight_layout()
+        plt.show()
     
     # cv.imwrite(f"result/img{pad_num(i)}.png", contoured)
     
     return centre
 
-def check_bounce(images):
-    global previous_x
-    centre = get_ball_position(images, FRONT_WALL)
-    if centre is not None:
-        if centre[0] < previous_x:
-            previous_x = centre[0]
-        else:
-            print("BOUNCE")
-            # ball_pos = get_ball_position([before[BACK_CAMERA], current[BACK_CAMERA], after[BACK_CAMERA]], BACK_CAMERA)
-            previous_x = -float('inf')
-            
-            return (1,1)
+bounced_wall = False
+previous_wall_x = float('inf')
+previous_floor_pos = None
+
+def check_bounce(images, debug):
+    global previous_wall_x
+    global previous_floor_y
+    global bounced_wall
+    
+    before = images[:3]
+    current = images[3:6]
+    after = images[6:]
+
+    back_images = [before[BACK_CAMERA], current[BACK_CAMERA], after[BACK_CAMERA]]
+    floor_images = [before[FLOOR], current[FLOOR], after[FLOOR]]
+    front_images = [before[FRONT_WALL], current[FRONT_WALL], after[FRONT_WALL]]
+    
+    wall_centre = get_ball_position(front_images, FRONT_WALL, debug=False)
+    if wall_centre is not None:
+        if not bounced_wall:
+            if wall_centre[0] < previous_wall_x:
+                previous_wall_x = wall_centre[1]
+            else:
+                ball_pos = get_ball_position(back_images, BACK_CAMERA, debug=debug)
+                bounced_wall = True
+                
+                return (ball_pos, BACK_CAMERA)
+    else:
+        previous_wall_x = float('inf')
+        bounced_wall = False
+    
+    floor_centre = get_ball_position(floor_images, FLOOR)
+    if floor_centre is not None:
+        
+        dist = math.sqrt((floor_centre[0] - previous_floor_pos[0]) ** 2 + (floor_centre[1] - previous_floor_pos[1]) ** 2)
+        if dist < 1000:
+            if floor_centre[1] < previous_floor_pos[1]:
+                previous_floor_pos = floor_centre
+                bounced_floor_once = False
+            else:
+                print("BOUNCE")
+                # ball_pos = get_ball_position([before[BACK_CAMERA], current[BACK_CAMERA], after[BACK_CAMERA]], BACK_CAMERA)
+                return ((1,1), FLOOR)
     else:
         previous_x = float('inf')
-    # before = images[:4]
-    # current = images[4:8]
-    # after = images[8:]
 
     # centre = get_ball_position([before[FRONT_WALL], current[FRONT_WALL], after[FRONT_WALL]], FRONT_WALL)
     # if centre is not None:
@@ -225,30 +258,23 @@ def check_bounce(images):
     #         previous_x = float('inf')
             
     #         return ball_pos
-previous_x = float('inf')
-i = 377
-# for i in range(2, 967):
+
+# for i in range(2, 5000):
+#     if i % 20 == 0:
+#         print("Log:", i)
+i = 315
 images = [
-    cv.imread(f"source2/video-frame00{pad_num(i - 1)}.png"),
-    cv.imread(f"source2/video-frame00{pad_num(i)}.png"),
-    cv.imread(f"source2/video-frame00{pad_num(i + 1)}.png")
+    cv.imread(f"../Videos/Back/video-frame0{pad_num(i - 1)}.png"),
+    cv.imread(f"../Videos/Front/video-frame0{pad_num(i - 1)}.png"),
+    cv.imread(f"../Videos/Floor/video-frame0{pad_num(i - 1)}.png"),
+    cv.imread(f"../Videos/Back/video-frame0{pad_num(i)}.png"),
+    cv.imread(f"../Videos/Front/video-frame0{pad_num(i)}.png"),
+    cv.imread(f"../Videos/Floor/video-frame0{pad_num(i)}.png"),
+    cv.imread(f"../Videos/Back/video-frame0{pad_num(i + 1)}.png"),
+    cv.imread(f"../Videos/Front/video-frame0{pad_num(i + 1)}.png"),
+    cv.imread(f"../Videos/Floor/video-frame0{pad_num(i + 1)}.png"),
 ]
-pos = check_bounce(images)
+pos = check_bounce(images, True)
 if pos is not None:
     print(i)
         
-"""
-BOUNCE
-377
-BOUNCE
-378
-BOUNCE
-428
-BOUNCE
-429
-BOUNCE
-430
-BOUNCE
-431
-BOUNCE
-432"""
