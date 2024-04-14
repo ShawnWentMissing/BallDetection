@@ -8,6 +8,8 @@ import math
 from time import perf_counter
 import cv2 as cv
 
+import checkRegion
+
 def pad_num(n):
     s = str(n)
     while len(s) < 4:
@@ -101,7 +103,7 @@ def get_ball_position(images, camera, debug):
     
     for cnt,cx,cy in data:
         area = cv.contourArea(cnt)
-        print(area)
+        # print(area)
         if min_area < area < max_area:
             ball_candidates.append((cnt,cx,cy))
     
@@ -205,11 +207,14 @@ def get_ball_position(images, camera, debug):
 bounced_wall = False
 previous_wall_x = float('inf')
 previous_floor_pos = None
+bounced_floor = False
 
-def check_bounce(images, debug):
+def check_bounce(images, debug=False):
     global previous_wall_x
     global previous_floor_y
     global bounced_wall
+    global previous_floor_pos
+    global bounced_floor
     
     before = images[:3]
     current = images[3:6]
@@ -233,20 +238,24 @@ def check_bounce(images, debug):
         previous_wall_x = float('inf')
         bounced_wall = False
     
-    floor_centre = get_ball_position(floor_images, FLOOR)
+    floor_centre = get_ball_position(floor_images, FLOOR, debug=False)
     if floor_centre is not None:
         
-        dist = math.sqrt((floor_centre[0] - previous_floor_pos[0]) ** 2 + (floor_centre[1] - previous_floor_pos[1]) ** 2)
-        if dist < 1000:
-            if floor_centre[1] < previous_floor_pos[1]:
-                previous_floor_pos = floor_centre
-                bounced_floor_once = False
-            else:
-                print("BOUNCE")
-                # ball_pos = get_ball_position([before[BACK_CAMERA], current[BACK_CAMERA], after[BACK_CAMERA]], BACK_CAMERA)
+        # dist = math.sqrt((floor_centre[0] - previous_floor_pos[0]) ** 2 + (floor_centre[1] - previous_floor_pos[1]) ** 2)
+        # if dist < 1000:
+        if floor_centre[1] < previous_floor_pos[1]:
+            bounced_floor = False
+            previous_floor_pos = floor_centre
+            # previous_floor_pos = floor_centre
+        else:
+            previous_floor_pos = floor_centre
+            if not bounced_floor:
+                bounced_floor = True
+            # ball_pos = get_ball_position([before[BACK_CAMERA], current[BACK_CAMERA], after[BACK_CAMERA]], BACK_CAMERA)
                 return ((1,1), FLOOR)
     else:
-        previous_x = float('inf')
+        previous_floor_pos = (float('inf'), float('inf'))
+        bounced_floor = False
 
     # centre = get_ball_position([before[FRONT_WALL], current[FRONT_WALL], after[FRONT_WALL]], FRONT_WALL)
     # if centre is not None:
@@ -259,22 +268,22 @@ def check_bounce(images, debug):
             
     #         return ball_pos
 
-# for i in range(2, 5000):
-#     if i % 20 == 0:
-#         print("Log:", i)
-i = 315
-images = [
-    cv.imread(f"../Videos/Back/video-frame0{pad_num(i - 1)}.png"),
-    cv.imread(f"../Videos/Front/video-frame0{pad_num(i - 1)}.png"),
-    cv.imread(f"../Videos/Floor/video-frame0{pad_num(i - 1)}.png"),
-    cv.imread(f"../Videos/Back/video-frame0{pad_num(i)}.png"),
-    cv.imread(f"../Videos/Front/video-frame0{pad_num(i)}.png"),
-    cv.imread(f"../Videos/Floor/video-frame0{pad_num(i)}.png"),
-    cv.imread(f"../Videos/Back/video-frame0{pad_num(i + 1)}.png"),
-    cv.imread(f"../Videos/Front/video-frame0{pad_num(i + 1)}.png"),
-    cv.imread(f"../Videos/Floor/video-frame0{pad_num(i + 1)}.png"),
-]
-pos = check_bounce(images, True)
-if pos is not None:
-    print(i)
+for i in range(2, 5172):
+    images = [
+        cv.imread(f"../Videos/Back/video-frame0{pad_num(i - 1)}.png"),
+        cv.imread(f"../Videos/Front/video-frame0{pad_num(i - 1)}.png"),
+        cv.imread(f"../Videos/Floor/video-frame0{pad_num(i - 1)}.png"),
+        cv.imread(f"../Videos/Back/video-frame0{pad_num(i)}.png"),
+        cv.imread(f"../Videos/Front/video-frame0{pad_num(i)}.png"),
+        cv.imread(f"../Videos/Floor/video-frame0{pad_num(i)}.png"),
+        cv.imread(f"../Videos/Back/video-frame0{pad_num(i + 1)}.png"),
+        cv.imread(f"../Videos/Front/video-frame0{pad_num(i + 1)}.png"),
+        cv.imread(f"../Videos/Floor/video-frame0{pad_num(i + 1)}.png"),
+    ]
+    
+    pos = check_bounce(images, False)
+    if pos is not None:
+        print(pos[0], 2 if pos[1] == 0 else 0, (i/60.0))
+        print(checkRegion.checkRegion(pos[0], 2 if pos[1] == 0 else 0, time=i/60.0))
+        
         
