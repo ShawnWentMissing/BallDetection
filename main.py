@@ -1,7 +1,8 @@
+import PIL.ImageFilter
 import skimage as ski
 from matplotlib.gridspec import GridSpec
 import matplotlib.pyplot as plt
-from skimage.color import rgb2gray
+# from skimage.color import rgb2gray
 from skimage.util import compare_images
 from skimage.exposure import rescale_intensity
 import numpy as np
@@ -10,6 +11,10 @@ from skimage.morphology import erosion, dilation
 from skimage.morphology import square
 from skimage import measure
 from time import perf_counter
+from PIL.ImageOps import grayscale
+from PIL import Image
+from PIL.ImageFilter import GaussianBlur
+from PIL.ImageChops import difference, multiply
 
 def pad_num(n):
     s = str(n)
@@ -25,56 +30,66 @@ images = [
 ]
 
 def get_ball_position(court, valid_region, valid_serve_region, images):
-    a = perf_counter()
+    start = perf_counter()
     image0, image1, image2 = images
 
-    grayscale0 = gaussian(rgb2gray(image0), sigma=3)
-    grayscale1 = gaussian(rgb2gray(image1), sigma=3)
-    grayscale2 = gaussian(rgb2gray(image2), sigma=3)
+    grayscale0 = grayscale(Image.fromarray(image0))
+    grayscale1 = grayscale(Image.fromarray(image1))
+    grayscale2 = grayscale(Image.fromarray(image2))
     
-    g = perf_counter()
+    after_grayscale = perf_counter()
+    
+    gaussian0 = grayscale0.filter(GaussianBlur(radius=3))
+    gaussian1 = grayscale1.filter(GaussianBlur(radius=3))
+    gaussian2 = grayscale2.filter(GaussianBlur(radius=3))
+    
+    after_gaussian = perf_counter()
 
-    diff1 = np.absolute(grayscale0 - grayscale1)
-    diff2 = np.absolute(grayscale1 - grayscale2)
+    diff1 = np.array(difference(gaussian0, gaussian1))/255
+    diff2 = np.array(difference(gaussian1, gaussian2))/255
 
     print(np.max(diff1), np.max(diff2))
-    print(np.min(diff1), np.min(diff2))
-# 6.803830177740122e-05
-# 5.162638454849153e-05
 
-    d = perf_counter()
+    after_difference = perf_counter()
     # rediff1 = np.clip(rescale_intensity(diff1, in_range='image', out_range=(0,1.5)), 0, 1)
     # rediff2 = np.clip(rescale_intensity(diff2, in_range='image', out_range=(0,1.5)), 0, 1)
 
     anded = np.multiply(diff1, diff2)
-    anded[anded < 0.0001] = 0
-    print(np.min(anded), np.max(anded))    
-    ande = perf_counter()
+    
+    # back view: 0.005
+    # wall view: 0.0001
+    
+    anded[anded < 0.005] = 0
+
+    after_and = perf_counter()
             
     otsu1 = threshold_otsu(image=anded)
     otsu1 = anded > otsu1
     
-    ott = perf_counter()
+    after_otsu = perf_counter()
 
     dilated = gaussian(otsu1, sigma=5) > 0
     
-    dit = perf_counter()
+    after_dilation = perf_counter()
     
     eroded = erosion(dilated, square(10))
     
-    erot = perf_counter()
+    after_erosion = perf_counter()
 
     # Find contours at a constant value of 0.8
     contours = measure.find_contours(eroded, 0.8)
     
-    cont = perf_counter()
-    print(g - a)
-    print(d - g)
-    print(ande - d)
-    print(ott -  ande)
-    print(dit - ott)
-    print(erot - dit)
-    print(cont - erot)
+    after_contours = perf_counter()
+    
+    print("Grayscale:", after_grayscale - start)
+    print("Gaussian:", after_gaussian - after_grayscale)
+    print("Difference:", after_difference - after_gaussian)
+    print("And:", after_and - after_difference)
+    print("Otsu:", after_otsu - after_and)
+    print("Dilation:", after_dilation - after_otsu)
+    print("Erosion:", after_erosion - after_dilation)
+    print("Contours:", after_contours - after_erosion)
+    print("Total:", after_contours - start - (after_gaussian - after_grayscale) - (after_erosion - after_dilation))
     # Display the image and plot all contours found
 
 
@@ -95,13 +110,13 @@ def get_ball_position(court, valid_region, valid_serve_region, images):
     ax31 = fig.add_subplot(gs[3, 1])
     ax32 = fig.add_subplot(gs[3, 2])
 
-    ax00.imshow(grayscale0, cmap='gray')
+    ax00.imshow(gaussian0, cmap='gray')
     ax00.set_title('Original')
     
-    ax01.imshow(grayscale1, cmap='gray')
+    ax01.imshow(gaussian1, cmap='gray')
     ax01.set_title('Original')
     
-    ax02.imshow(grayscale2, cmap='gray')
+    ax02.imshow(gaussian2, cmap='gray')
     ax02.set_title('Original')
     
     ax10.imshow(diff1, cmap='gray')
